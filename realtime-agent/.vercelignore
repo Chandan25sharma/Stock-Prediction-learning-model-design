@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+.git/
+.gitignore
+start.bat
+start.sh
+setup.py
+test_app.py
+PROJECT_OVERVIEW.md
+README_old.md
+templates/
+*.ipynb
+.ipynb_checkpoints/
