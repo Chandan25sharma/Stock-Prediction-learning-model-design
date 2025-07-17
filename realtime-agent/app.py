@@ -1,8 +1,9 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 import numpy as np
 import pickle
 import json
 import time
+import os
 from sklearn.preprocessing import MinMaxScaler
 import pandas as pd
 from datetime import datetime
@@ -340,8 +341,21 @@ class Agent:
         return states_buy, states_sell, total_gains, invest
 
 
-with open('model.pkl', 'rb') as fopen:
-    model = pickle.load(fopen)
+# Get the directory where this script is located
+script_dir = os.path.dirname(os.path.abspath(__file__))
+os.chdir(script_dir)
+
+try:
+    with open('model.pkl', 'rb') as fopen:
+        model = pickle.load(fopen)
+        print("Model loaded successfully")
+except Exception as e:
+    print(f"Error loading model: {e}")
+    # Create a new model if loading fails
+    print("Creating new model...")
+    model = Model(input_size=window_size * 2 * 2 + 3, 
+                 layer_size=layer_size, 
+                 output_size=output_size)
 
 df = pd.read_csv('TWTR.csv')
 real_trend = df['Close'].tolist()
@@ -359,47 +373,73 @@ agent = Agent(model = model,
 
 @app.route('/', methods = ['GET'])
 def hello():
+    return render_template('index.html')
+
+
+@app.route('/api/status', methods = ['GET'])
+def api_status():
     return jsonify({'status': 'OK'})
 
 
 @app.route('/inventory', methods = ['GET'])
 def inventory():
-    return jsonify(agent._inventory)
+    try:
+        return jsonify(agent._inventory)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/queue', methods = ['GET'])
 def queue():
-    return jsonify(agent._queue)
+    try:
+        return jsonify(agent._queue)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/balance', methods = ['GET'])
 def balance():
-    return jsonify(agent._capital)
+    try:
+        return jsonify(agent._capital)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/trade', methods = ['GET'])
 def trade():
-    data_str = request.args.get('data')
-    if not data_str:
-        return jsonify({'error': 'data parameter is required'}), 400
     try:
-        data = json.loads(data_str)
-    except json.JSONDecodeError:
-        return jsonify({'error': 'Invalid JSON format'}), 400
-    return jsonify(agent.trade(data))
+        data_str = request.args.get('data')
+        if not data_str:
+            return jsonify({'error': 'data parameter is required'}), 400
+        try:
+            data = json.loads(data_str)
+        except json.JSONDecodeError:
+            return jsonify({'error': 'Invalid JSON format'}), 400
+        
+        if not isinstance(data, list) or len(data) != 2:
+            return jsonify({'error': 'data must be a list with 2 elements [close_price, volume]'}), 400
+        
+        result = agent.trade(data)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/reset', methods = ['GET'])
 def reset():
-    money_str = request.args.get('money')
-    if not money_str:
-        return jsonify({'error': 'money parameter is required'}), 400
     try:
-        money = json.loads(money_str)
-    except json.JSONDecodeError:
-        return jsonify({'error': 'Invalid JSON format'}), 400
-    agent.reset_capital(money)
-    return jsonify(True)
+        money_str = request.args.get('money')
+        if not money_str:
+            return jsonify({'error': 'money parameter is required'}), 400
+        try:
+            money = float(money_str)
+        except ValueError:
+            return jsonify({'error': 'money must be a valid number'}), 400
+        
+        agent.reset_capital(money)
+        return jsonify({'success': True, 'message': 'Agent reset successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':
