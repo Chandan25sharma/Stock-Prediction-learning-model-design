@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 import numpy as np
 import pickle
 import json
+import time
 from sklearn.preprocessing import MinMaxScaler
 import pandas as pd
 from datetime import datetime
@@ -378,13 +379,25 @@ def balance():
 
 @app.route('/trade', methods = ['GET'])
 def trade():
-    data = json.loads(request.args.get('data'))
+    data_str = request.args.get('data')
+    if not data_str:
+        return jsonify({'error': 'data parameter is required'}), 400
+    try:
+        data = json.loads(data_str)
+    except json.JSONDecodeError:
+        return jsonify({'error': 'Invalid JSON format'}), 400
     return jsonify(agent.trade(data))
 
 
 @app.route('/reset', methods = ['GET'])
 def reset():
-    money = json.loads(request.args.get('money'))
+    money_str = request.args.get('money')
+    if not money_str:
+        return jsonify({'error': 'money parameter is required'}), 400
+    try:
+        money = json.loads(money_str)
+    except json.JSONDecodeError:
+        return jsonify({'error': 'Invalid JSON format'}), 400
     agent.reset_capital(money)
     return jsonify(True)
 

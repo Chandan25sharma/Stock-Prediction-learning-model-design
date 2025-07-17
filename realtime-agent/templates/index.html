@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Trading Agent</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .section h2 {
+            color: #555;
+            margin-top: 0;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="number"], input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .button-danger {
+            background-color: #f44336;
+        }
+        .button-danger:hover {
+            background-color: #da190b;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status.success {
+            background-color: #dff0d8;
+            color: #3c763d;
+            border: 1px solid #d6e9c6;
+        }
+        .status.error {
+            background-color: #f2dede;
+            color: #a94442;
+            border: 1px solid #ebccd1;
+        }
+        .status.info {
+            background-color: #d9edf7;
+            color: #31708f;
+            border: 1px solid #bce8f1;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            min-width: 120px;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .trade-history {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: #f9f9f9;
+        }
+        .trade-entry {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-left: 4px solid #4CAF50;
+            background-color: white;
+        }
+        .trade-entry.sell {
+            border-left-color: #f44336;
+        }
+        .trade-entry.nothing {
+            border-left-color: #ff9800;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Stock Trading Agent</h1>
+        
+        <div class="section">
+            <h2>Agent Status</h2>
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="balance">$0.00</div>
+                    <div class="stat-label">Balance</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="inventory">0</div>
+                    <div class="stat-label">Inventory</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="queue">0</div>
+                    <div class="stat-label">Queue Size</div>
+                </div>
+            </div>
+            <button onclick="refreshStatus()">🔄 Refresh Status</button>
+        </div>
+
+        <div class="section">
+            <h2>Trade Stock</h2>
+            <div class="form-group">
+                <label for="closePrice">Close Price:</label>
+                <input type="number" id="closePrice" step="0.01" placeholder="e.g., 150.25">
+            </div>
+            <div class="form-group">
+                <label for="volume">Volume:</label>
+                <input type="number" id="volume" placeholder="e.g., 1000000">
+            </div>
+            <button onclick="executeTrade()">📈 Execute Trade</button>
+        </div>
+
+        <div class="section">
+            <h2>Reset Agent</h2>
+            <div class="form-group">
+                <label for="resetMoney">Initial Money:</label>
+                <input type="number" id="resetMoney" step="0.01" placeholder="e.g., 10000">
+            </div>
+            <button onclick="resetAgent()" class="button-danger">🔄 Reset Agent</button>
+        </div>
+
+        <div class="section">
+            <h2>Trade History</h2>
+            <div id="tradeHistory" class="trade-history">
+                <p>No trades executed yet.</p>
+            </div>
+            <button onclick="clearHistory()">🗑️ Clear History</button>
+        </div>
+
+        <div id="statusMessage" class="status" style="display: none;"></div>
+    </div>
+
+    <script>
+        let tradeHistory = [];
+
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD'
+            }).format(amount);
+        }
+
+        function formatNumber(num) {
+            return new Intl.NumberFormat('en-US').format(num);
+        }
+
+        async function refreshStatus() {
+            try {
+                const [balanceResp, inventoryResp, queueResp] = await Promise.all([
+                    fetch('/balance'),
+                    fetch('/inventory'),
+                    fetch('/queue')
+                ]);
+
+                const balance = await balanceResp.json();
+                const inventory = await inventoryResp.json();
+                const queue = await queueResp.json();
+
+                document.getElementById('balance').textContent = formatCurrency(balance);
+                document.getElementById('inventory').textContent = inventory.length;
+                document.getElementById('queue').textContent = queue.length;
+
+                showStatus('Status refreshed successfully', 'success');
+            } catch (error) {
+                showStatus('Error refreshing status: ' + error.message, 'error');
+            }
+        }
+
+        async function executeTrade() {
+            const closePrice = document.getElementById('closePrice').value;
+            const volume = document.getElementById('volume').value;
+
+            if (!closePrice || !volume) {
+                showStatus('Please enter both close price and volume', 'error');
+                return;
+            }
+
+            try {
+                const data = [parseFloat(closePrice), parseInt(volume)];
+                const response = await fetch(`/trade?data=${JSON.stringify(data)}`);
+                const result = await response.json();
+
+                if (response.ok) {
+                    addTradeToHistory(result);
+                    showStatus(`Trade executed: ${result.status}`, 'success');
+                    refreshStatus();
+                } else {
+                    showStatus(`Trade failed: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus('Error executing trade: ' + error.message, 'error');
+            }
+        }
+
+        async function resetAgent() {
+            const money = document.getElementById('resetMoney').value;
+
+            if (!money) {
+                showStatus('Please enter initial money amount', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/reset?money=${money}`);
+                const result = await response.json();
+
+                if (response.ok) {
+                    showStatus('Agent reset successfully', 'success');
+                    refreshStatus();
+                    clearHistory();
+                } else {
+                    showStatus(`Reset failed: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus('Error resetting agent: ' + error.message, 'error');
+            }
+        }
+
+        function addTradeToHistory(trade) {
+            tradeHistory.unshift(trade);
+            if (tradeHistory.length > 50) {
+                tradeHistory = tradeHistory.slice(0, 50);
+            }
+            updateTradeHistoryDisplay();
+        }
+
+        function updateTradeHistoryDisplay() {
+            const historyDiv = document.getElementById('tradeHistory');
+            
+            if (tradeHistory.length === 0) {
+                historyDiv.innerHTML = '<p>No trades executed yet.</p>';
+                return;
+            }
+
+            historyDiv.innerHTML = tradeHistory.map(trade => `
+                <div class="trade-entry ${trade.action}">
+                    <strong>${trade.action.toUpperCase()}</strong>: ${trade.status}<br>
+                    <small>Balance: ${formatCurrency(trade.balance)} | ${trade.timestamp}</small>
+                    ${trade.investment ? `<br><small>Investment: ${trade.investment}</small>` : ''}
+                    ${trade.gain ? `<br><small>Gain: ${formatCurrency(trade.gain)}</small>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function clearHistory() {
+            tradeHistory = [];
+            updateTradeHistoryDisplay();
+            showStatus('Trade history cleared', 'info');
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshStatus();
+        });
+    </script>
+</body>
+</html>
